@@ -89,7 +89,12 @@
   .owed .settled { color: var(--sage); }
   .split-opt { display: flex; flex-direction: column; height: auto; padding: 8px 6px; gap: 2px; }
   .split-opt small { font-weight: 400; opacity: .8; }
-  @media (prefers-reduced-motion: reduce) { .confetti { display: none; } }
+  .reading { position: absolute; inset: auto 0 0 0; padding: 12px; background: rgba(28,23,18,.82); color: var(--paper);
+    display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 650; }
+  .reading .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--coral); animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .25; transform: scale(.7); } }
+  .note { background: #eef3ee; color: var(--sage); border-radius: 12px; padding: 10px 12px; font-size: .92rem; margin: 10px 0 0; }
+  @media (prefers-reduced-motion: reduce) { .confetti { display: none; } .reading .dot { animation: none; } }
 </style>
 </head>
 <body>
@@ -98,8 +103,10 @@
 <canvas class="confetti" id="confetti"></canvas>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, get, set, update, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getDatabase, ref, get, set, update, onValue } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app-check.js";
+import { getAI, getGenerativeModel, GoogleAIBackend, Schema } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-ai.js";
 
 /* ======================================================================
    PASTE YOUR FIREBASE CONFIG HERE
@@ -117,8 +124,52 @@ const firebaseConfig = {
 };
 /* ====================================================================== */
 
+/* ======================================================================
+   RECEIPT READING (Firebase AI Logic)
+   Paste your reCAPTCHA Enterprise site key below to switch it on.
+   Until then, the app still works: people type the dishes in by hand.
+   ====================================================================== */
+const RECAPTCHA_SITE_KEY = "PASTE_RECAPTCHA_SITE_KEY";
+const AI_MODEL = "gemini-3.5-flash";
+/* ====================================================================== */
+
 const configured = !!firebaseConfig.databaseURL && !String(firebaseConfig.apiKey).startsWith("PASTE");
-const db = configured ? getDatabase(initializeApp(firebaseConfig)) : null;
+const firebaseApp = configured ? initializeApp(firebaseConfig) : null;
+const db = firebaseApp ? getDatabase(firebaseApp) : null;
+
+// What we ask the AI to send back: a tidy list we can turn straight into dish buttons.
+const RECEIPT_SCHEMA = Schema.object({
+  properties: {
+    merchant: Schema.string(),
+    items: Schema.array({ items: Schema.object({
+      properties: { name: Schema.string(), quantity: Schema.integer(), price: Schema.number() },
+      optionalProperties: ["quantity"],
+    }) }),
+    extras: Schema.number(),
+    total: Schema.number(),
+  },
+  optionalProperties: ["merchant", "extras", "total"],
+});
+const RECEIPT_PROMPT = `You are reading a photo of a restaurant or bar receipt so friends can split it.
+Return every ordered line item. For each: "name" (short, as printed, tidy capitalisation), "price" (the total for that line as a plain number, e.g. 12.5), and "quantity" if the line is for more than one (e.g. "2 x Guinness 12.00" is name "Guinness", quantity 2, price 12).
+Do NOT list subtotals, totals, VAT, tax, service charge, tips, discounts, payments, card or change lines as items.
+"extras": the sum of any service charge or tax added ON TOP of the item prices (0 if VAT is already included in the prices, as on most Irish receipts). Subtract discounts from extras if they apply to the whole bill.
+"total": the final amount due. "merchant": the restaurant name if printed.
+If the photo is not a receipt or is unreadable, return an empty items list.`;
+
+let receiptModel = null;
+const aiEnabled = !!firebaseApp && !RECAPTCHA_SITE_KEY.startsWith("PASTE");
+if (aiEnabled) {
+  try {
+    if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+    initializeAppCheck(firebaseApp, { provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_SITE_KEY), isTokenAutoRefreshEnabled: true });
+    const ai = getAI(firebaseApp, { backend: new GoogleAIBackend() });
+    receiptModel = getGenerativeModel(ai, {
+      model: AI_MODEL,
+      generationConfig: { responseMimeType: "application/json", responseSchema: RECEIPT_SCHEMA, temperature: 0 },
+    });
+  } catch (e) { console.warn("Receipt reading unavailable:", e); }
+}
 
 /* ---------- small helpers ---------- */
 const COLORS = ["#e85d3a","#3d6b4f","#2b4c7e","#c9a227","#6b3d6b","#1c1712","#b85c38","#2f6f62"];
@@ -386,6 +437,57 @@ async function compress(file, max = 900, q = 0.6) {
   return c.toDataURL("image/jpeg", q);
 }
 
+/* ---------- reading the receipt ---------- */
+function friendlyAiError(e) {
+  const msg = String(e?.message || e);
+  if (/app.?check|recaptcha|403|permission/i.test(msg)) return "Receipt reading is blocked by Firebase's security check (App Check). Type the dishes in for now.";
+  if (/429|quota|exhausted|rate/i.test(msg)) return "Lots of receipts are being read right now. Try again in a minute, or type the dishes in.";
+  if (/network|fetch|offline/i.test(msg)) return "Couldn't reach the receipt reader. Check your internet connection and try again.";
+  return "Couldn't read that receipt. Try a flatter, brighter photo, or type the dishes in.";
+}
+// Turn "2 x Guinness €12" into two separate €6 Guinness buttons, so each person can claim one.
+function expandItems(list) {
+  const out = [];
+  for (const it of list || []) {
+    const name = String(it.name || "").trim(); const price = round2(it.price);
+    if (!name || !(price > 0)) continue;
+    const q = Math.round(Number(it.quantity) || 1);
+    if (q >= 2 && q <= 12) {
+      const each = Math.floor(price * 100 / q) / 100;
+      for (let i = 0; i < q; i++) out.push({ name, price: (i === q - 1 ? round2(price - each * (q - 1)) : each).toFixed(2) });
+    } else out.push({ name, price: price.toFixed(2) });
+  }
+  return out;
+}
+async function readReceipt(file) {
+  const d = state.draft;
+  d.reading = true; d.note = ""; state.error = ""; render();
+  try {
+    const hiRes = await compress(file, 1600, 0.8); // sharper copy just for reading the small print
+    const result = await receiptModel.generateContent([
+      RECEIPT_PROMPT,
+      { inlineData: { data: hiRes.split(",")[1], mimeType: "image/jpeg" } },
+    ]);
+    const data = JSON.parse(result.response.text());
+    const items = expandItems(data.items);
+    if (!items.length) {
+      state.error = "Couldn't find any dishes on that photo. Try again with the whole receipt in view, or type them in.";
+    } else {
+      d.items = items;
+      if (!d.merchant.trim() && data.merchant) d.merchant = String(data.merchant).trim();
+      const extras = round2(data.extras);
+      d.tax = extras > 0 ? extras.toFixed(2) : "0.00";
+      const found = round2(items.reduce((s, i) => s + Number(i.price), 0) + Math.max(0, extras));
+      const total = round2(data.total);
+      d.note = `Found ${items.length} ${items.length === 1 ? "dish" : "dishes"}. Check them against the receipt, then share the bill.`;
+      if (total > 0 && Math.abs(found - total) > 0.05) {
+        d.note += ` Heads up: they add up to ${money(found)} but the receipt total is ${money(total)}, so a line may be missing or misread.`;
+      }
+    }
+  } catch (e) { console.warn(e); state.error = friendlyAiError(e); }
+  d.reading = false; render();
+}
+
 /* ---------- views ---------- */
 function render() {
   try { draw(); }
@@ -495,8 +597,11 @@ function viewScan() {
     items: itemsOf().map(it => ({ name: it.name, price: String(it.price) })),
   });
   const el = h(`<div>${topbar()}
-    <div class="hero-shot">${d.preview ? `<img src="${esc(d.preview)}" alt="Your receipt" />` : `<div class="hero-copy"><div style="font-size:1.3rem">Photograph the check</div><div class="hint" style="color:#edd">It's shown to the table so everyone can check the dishes.</div></div>`}</div>
-    <div class="row" style="margin-top:10px"><button class="btn" id="cam">Camera</button><button class="btn ghost" id="up">Upload</button></div>
+    <div class="hero-shot">${d.preview ? `<img src="${esc(d.preview)}" alt="Your receipt" />` : `<div class="hero-copy"><div style="font-size:1.3rem">Photograph the check</div><div class="hint" style="color:#edd">${receiptModel ? "The dishes are read from the photo and turned into buttons for the table." : "It's shown to the table so everyone can check the dishes."}</div></div>`}
+      ${d.reading ? `<div class="reading" role="status"><span class="dot"></span>Reading your receipt…</div>` : ""}</div>
+    <div class="row" style="margin-top:10px"><button class="btn" id="cam" ${d.reading ? "disabled" : ""}>Camera</button><button class="btn ghost" id="up" ${d.reading ? "disabled" : ""}>Upload</button></div>
+    ${d.note ? `<p class="note" role="status">${esc(d.note)}</p>` : ""}
+    ${d.preview && !receiptModel && !d.reading ? `<p class="hint">Photo attached. Type the dishes from the receipt below.</p>` : ""}
     <input id="file" type="file" accept="image/*" hidden />
     <p style="text-align:center"><button class="pill" id="sample">Fill in a sample bill</button></p>
     <div class="card" style="margin-top:4px">
@@ -508,14 +613,14 @@ function viewScan() {
       <label><span>Your Revolut username, so friends can pay you (optional)</span>
         <div class="prefixed"><em>revolut.me/</em><input id="rev" type="text" autocomplete="off" autocapitalize="off" placeholder="maya123" value="${esc(d.revolut)}" /></div></label>
       ${errorHtml()}
-      <button class="btn coral" id="lock" style="margin-top:14px" ${state.busy ? "disabled" : ""}>Share bill with the table</button>
+      <button class="btn coral" id="lock" style="margin-top:14px" ${state.busy || d.reading ? "disabled" : ""}>Share bill with the table</button>
       ${itemsOf().length ? `<p class="hint">Saving replaces the current dishes, so everyone's claims start fresh.</p>` : ""}
     </div></div>`);
   wireTopbar(el);
   const drawLines = () => {
     const box = el.querySelector("#lines");
     if (!d.items.length) d.items.push({ name: "", price: "" });
-    box.innerHTML = d.items.map((it, i) => `<div class="row" style="margin-top:8px"><input type="text" aria-label="Dish" data-i="${i}" data-k="name" value="${esc(it.name)}" placeholder="Dish" /><input type="text" aria-label="Price" data-i="${i}" data-k="price" value="${esc(it.price)}" placeholder="0.00" inputmode="decimal" style="width:88px;flex:0 0 88px" /><button class="pill" aria-label="Remove dish" data-del="${i}">✕</button></div>`).join("");
+    box.innerHTML = d.items.map((it, i) => `<div class="row" style="margin-top:8px"><input type="text" aria-label="Dish" data-i="${i}" data-k="name" value="${esc(it.name)}" placeholder="Dish" /><input type="text" aria-label="Price" data-i="${i}" data-k="price" value="${esc(it.price)}" placeholder="0.00" inputmode="decimal" style="width:88px;flex:0 0 88px" /><button class="pill" aria-label="Remove dish" data-del="${i}" style="flex:0 0 auto;height:46px;width:46px;justify-content:center">✕</button></div>`).join("");
     box.querySelectorAll("input").forEach(inp => inp.oninput = () => { d.items[+inp.dataset.i][inp.dataset.k] = inp.value; });
     box.querySelectorAll("[data-del]").forEach(b => b.onclick = () => { d.items.splice(+b.dataset.del, 1); drawLines(); });
   };
@@ -525,9 +630,12 @@ function viewScan() {
   el.querySelector("#up").onclick = () => { file.removeAttribute("capture"); file.click(); };
   file.onchange = async (e) => {
     const f = e.target.files?.[0]; e.target.value = ""; if (!f) return;
-    try { d.photo = await compress(f); d.preview = d.photo; state.error = ""; }
-    catch { state.error = "Couldn't open that photo. Try another one."; }
+    try { d.photo = await compress(f); d.preview = d.photo; state.error = ""; d.note = ""; }
+    catch { state.error = "Couldn't open that photo. Try another one."; render(); return; }
+    if (receiptModel) { readReceipt(f); return; }
     render();
+    const firstEmpty = el.ownerDocument.querySelector('#lines input[data-k="name"]');
+    firstEmpty?.scrollIntoView({ behavior: "smooth", block: "center" }); firstEmpty?.focus();
   };
   el.querySelector("#place").oninput = e => d.merchant = e.target.value;
   el.querySelector("#tax").oninput = e => d.tax = e.target.value;
