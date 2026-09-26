@@ -4,15 +4,15 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Chop the Check — snap the bill, claim your dishes</title>
-<meta name="theme-color" content="#020617" />
+<meta name="theme-color" content="#f4efe6" />
 <meta name="application-name" content="Chop the Check" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="Chop the Check" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <link rel="manifest" href="manifest.webmanifest" />
-<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <style>
   :root {
     --ink: #1c1712; --paper: #f4efe6; --card: #fffdf8; --line: #e4d9c8;
@@ -29,10 +29,10 @@
   .wrap { max-width: 430px; margin: 0 auto;
     padding: 16px 16px calc(96px + env(safe-area-inset-bottom, 0px)); }
   /* Spectrum Tech Engine banner, matching the other STE apps */
-  .ste-banner { background: #020617; display: flex; justify-content: center; align-items: center;
-    padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 4px; }
-  .ste-banner img { height: 32px; width: auto; max-width: 100%; object-fit: contain; display: block; }
-  @media (min-width: 640px) { .ste-banner { padding-top: calc(12px + env(safe-area-inset-top, 0px)); padding-bottom: 6px; } .ste-banner img { height: 56px; } }
+  .ste-banner { display: flex; justify-content: center; align-items: center;
+    padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 0; }
+  .ste-banner img { height: 34px; width: auto; max-width: 100%; object-fit: contain; display: block; }
+  @media (min-width: 640px) { .ste-banner img { height: 44px; } }
   h1 { font-size: 1.7rem; line-height: 1.15; margin: 10px 0 8px; }
   h2 { margin: 12px 0 4px; }
   .muted { color: var(--muted); }
@@ -242,11 +242,12 @@ function watchRoom(code) {
   unwatch = onValue(ref(db, "rooms/" + code), (snap) => {
     const room = snap.val();
     if (!room) { goHome("That table doesn't exist any more."); return; }
+    const firstLoad = !state.room;
     state.room = room;
     const all = everyoneSettled();
     if (state.wasAllSettled === false && all) { state.complete = true; burst(); }
     state.wasAllSettled = all;
-    if (state.view === "scan") return; // don't wipe what the host is typing
+    if (state.view === "scan" && !firstLoad) return; // don't wipe what the host is typing
     render();
   }, (e) => { state.error = friendly(e); render(); });
 }
@@ -387,18 +388,38 @@ async function compress(file, max = 900, q = 0.6) {
 
 /* ---------- views ---------- */
 function render() {
+  try { draw(); }
+  catch (e) {
+    console.error(e);
+    document.getElementById("app").replaceChildren(h(`<div class="card" style="margin-top:40px"><p>Something went wrong on this screen.</p><p class="hint">${esc(e?.message || e)}</p><button class="btn ghost sm" onclick="location.href=location.pathname">Start again</button></div>`));
+  }
+}
+function draw() {
+  if (state.room || !state.code) state.slow = false;
   const root = document.getElementById("app");
   const y = scrollY;
   let el;
   if (state.view === "setup") el = viewSetup();
   else if (state.view === "land") el = viewLand();
   else if (state.view === "join") el = viewJoin();
-  else if (!state.room) el = h(`<p class="hint" style="text-align:center;margin-top:40px">Finding your table…</p>`);
+  else if (!state.room) el = viewLoading();
   else if (state.view === "scan") el = viewScan();
   else if (state.room.closed) el = viewClosed();
   else el = viewTable();
   root.replaceChildren(el);
   scrollTo(0, y);
+}
+let loadingTimer = null;
+function viewLoading() {
+  clearTimeout(loadingTimer);
+  loadingTimer = setTimeout(() => { if (!state.room && state.code) { state.slow = true; render(); } }, 10000);
+  const el = h(`<div class="card" style="text-align:center;margin-top:40px">
+    <p>Finding your table…</p>
+    ${errorHtml()}
+    ${state.slow && !state.error ? `<p class="hint">This is taking longer than usual. Check your internet connection.</p>` : ""}
+    <button class="btn ghost sm" id="home" style="margin-top:8px">Home</button></div>`);
+  el.querySelector("#home").onclick = () => goHome();
+  return el;
 }
 const errorHtml = () => state.error ? `<p class="err" role="alert">${esc(state.error)}</p>` : "";
 

@@ -1,9 +1,9 @@
 // Chop the Check service worker.
 // The page itself is fetched fresh whenever there's internet, so new versions
 // uploaded to GitHub show up straight away. The cached copy is only a fallback.
-const CACHE = "chopthecheck-v1";
+const CACHE = "chopthecheck-v2";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "ste-logo.png",
-  "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png", "icons/favicon-32.png"];
+  "icon-192.png", "icon-512.png", "apple-touch-icon.png", "favicon-32.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

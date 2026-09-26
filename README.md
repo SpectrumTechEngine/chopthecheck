@@ -12,7 +12,7 @@ Snap the bill, share a table code, and everyone claims their own dishes from the
 { "rules": { "rooms": { "$code": { ".read": true, ".write": true } } } }
 ```
 
-4. Upload every file (including the `icons` folder) to this repo and turn on GitHub Pages (Settings → Pages → Deploy from branch → `main` / root).
+4. Upload every file to this repo and turn on GitHub Pages (Settings → Pages → Deploy from branch → `main` / root).
 
 ## How it works
 
@@ -28,4 +28,4 @@ Chop the Check is a Progressive Web App. On Android, open it in Chrome and tap *
 - `manifest.webmanifest` gives phones the app's name, colours and icon
 - `sw.js` lets it install and open quickly
 - `ste-logo.png` is the Spectrum Tech Engine banner
-- `icons/` holds the home-screen icons
+- `icon-192.png`, `icon-512.png`, `apple-touch-icon.png` and `favicon-32.png` are the home-screen icons
