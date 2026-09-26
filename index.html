@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Chop the Check — snap the bill, claim your dishes</title>
+<meta name="theme-color" content="#020617" />
+<meta name="application-name" content="Chop the Check" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="Chop the Check" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<style>
+  :root {
+    --ink: #1c1712; --paper: #f4efe6; --card: #fffdf8; --line: #e4d9c8;
+    --muted: #8a7b6a; --coral: #e85d3a; --sage: #3d6b4f;
+    --shadow: 0 10px 28px rgba(28,23,18,.10); --radius: 22px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: var(--paper); color: var(--ink);
+    font-family: Palatino, "Palatino Linotype", "Book Antiqua", "Times New Roman", serif; }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  button:disabled { opacity: .55; cursor: default; }
+  :focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }
+  .wrap { max-width: 430px; margin: 0 auto;
+    padding: 16px 16px calc(96px + env(safe-area-inset-bottom, 0px)); }
+  /* Spectrum Tech Engine banner, matching the other STE apps */
+  .ste-banner { background: #020617; display: flex; justify-content: center; align-items: center;
+    padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 4px; }
+  .ste-banner img { height: 32px; width: auto; max-width: 100%; object-fit: contain; display: block; }
+  @media (min-width: 640px) { .ste-banner { padding-top: calc(12px + env(safe-area-inset-top, 0px)); padding-bottom: 6px; } .ste-banner img { height: 56px; } }
+  h1 { font-size: 1.7rem; line-height: 1.15; margin: 10px 0 8px; }
+  h2 { margin: 12px 0 4px; }
+  .muted { color: var(--muted); }
+  .card { background: var(--card); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: 48px; padding: 0 16px; border: 0; border-radius: 14px; text-decoration: none;
+    background: var(--ink); color: var(--paper); font-weight: 650; width: 100%; }
+  .btn.coral { background: var(--coral); }
+  .btn.ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
+  .btn.sage { background: var(--sage); }
+  .btn.sm { height: 40px; font-size: .92rem; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  .spread { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  input[type=text] {
+    width: 100%; height: 46px; border: 1.5px solid var(--line); border-radius: 12px; padding: 0 12px; background: #fff;
+  }
+  label { display: block; margin-top: 10px; }
+  label:first-child { margin-top: 0; }
+  label span { display: block; font-size: .85rem; color: var(--muted); margin-bottom: 4px; }
+  .prefixed { display: flex; align-items: center; border: 1.5px solid var(--line); border-radius: 12px; background: #fff; padding-left: 12px; }
+  .prefixed em { font-style: normal; color: var(--muted); white-space: nowrap; }
+  .prefixed input { border: 0; padding-left: 2px; }
+  .hero-shot { position: relative; overflow: hidden; border-radius: var(--radius);
+    background: var(--ink); color: var(--paper); min-height: 168px; display: grid; place-items: center; text-align: center; }
+  .hero-shot img { width: 100%; height: 168px; object-fit: cover; display: block; }
+  .hero-shot.tall img { height: auto; max-height: 70vh; object-fit: contain; }
+  .hero-copy { padding: 24px 16px; }
+  .members { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 8px; }
+  .chip { display: flex; align-items: center; gap: 6px; padding: 6px 10px 6px 6px;
+    border-radius: 999px; background: #fff; border: 1.5px solid var(--line); white-space: nowrap; font-size: .88rem; }
+  .chip.me { border-color: var(--ink); }
+  .chip .tick { color: var(--sage); font-weight: 700; }
+  .av { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 11px; font-weight: 700; }
+  .item { background: var(--card); border-radius: 18px; padding: 14px; box-shadow: var(--shadow); margin-bottom: 10px; }
+  .item .nm { font-weight: 650; }
+  .bill { border: 2px dashed var(--line); }
+  .breakdown { font-size: .86rem; color: var(--muted); margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+  .stamp { width: 120px; height: 120px; margin: 8px auto 0; border: 6px solid var(--coral); border-radius: 50%;
+    display: grid; place-items: center; color: var(--coral); font-weight: 800; transform: rotate(-12deg); text-align: center; }
+  .overlay { position: fixed; inset: 0; background: rgba(28,23,18,.55); display: grid; place-items: end center; z-index: 40;
+    padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px)); }
+  .sheet { background: var(--card); width: 100%; max-width: 430px; border-radius: 22px 22px 16px 16px; padding: 18px; }
+  .topbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .pill { height: 32px; padding: 0 10px; border-radius: 999px; border: 1.5px solid var(--line); background: #fff; font-size: .8rem;
+    display: inline-flex; align-items: center; text-decoration: none; color: var(--ink); }
+  .pill.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .pill.code { font-weight: 700; letter-spacing: .08em; }
+  .pill.warn { border-color: var(--coral); color: var(--coral); }
+  .confetti { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
+  .hint { font-size: .86rem; color: var(--muted); }
+  .err { color: var(--coral); font-size: .9rem; }
+  .owed { margin-top: 6px; }
+  .owed .settled { color: var(--sage); }
+  .split-opt { display: flex; flex-direction: column; height: auto; padding: 8px 6px; gap: 2px; }
+  .split-opt small { font-weight: 400; opacity: .8; }
+  @media (prefers-reduced-motion: reduce) { .confetti { display: none; } }
+</style>
+</head>
+<body>
+<header class="ste-banner"><img src="ste-logo.png" alt="Spectrum Tech Engine" width="871" height="112" /></header>
+<div class="wrap" id="app"></div>
+<canvas class="confetti" id="confetti"></canvas>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, get, set, update, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+/* ======================================================================
+   PASTE YOUR FIREBASE CONFIG HERE
+   Firebase console → ⚙️ Project settings → Your apps → Config.
+   Replace this whole block with yours (keep the "const firebaseConfig =").
+   ====================================================================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyCFKyTr_-0QC7Vl-HjUpfMibi5Eu4IgKz0",
+  authDomain: "chopthecheck.firebaseapp.com",
+  databaseURL: "https://chopthecheck-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "chopthecheck",
+  storageBucket: "chopthecheck.firebasestorage.app",
+  messagingSenderId: "506847790153",
+  appId: "1:506847790153:web:109788afc2ad8afc31eb98"
+};
+/* ====================================================================== */
+
+const configured = !!firebaseConfig.databaseURL && !String(firebaseConfig.apiKey).startsWith("PASTE");
+const db = configured ? getDatabase(initializeApp(firebaseConfig)) : null;
+
+/* ---------- small helpers ---------- */
+const COLORS = ["#e85d3a","#3d6b4f","#2b4c7e","#c9a227","#6b3d6b","#1c1712","#b85c38","#2f6f62"];
+const uid = (p = "id") => p + "-" + Math.random().toString(36).slice(2, 10);
+const money = (n) => "€" + (Number(n) || 0).toFixed(2);
+const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+const parseMoney = (v) => Number(String(v ?? "").replace(",", ".").replace(/[^0-9.]/g, "")) || 0;
+const initials = (n) => (n || "?").trim().split(/\s+/).map(s => s[0]).join("").slice(0, 2).toUpperCase();
+const colorFor = (id) => COLORS[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const safePhoto = (p) => (typeof p === "string" && p.startsWith("data:image/")) ? p : "";
+const cleanRevolut = (s) => String(s || "").trim().replace(/^https?:\/\/(www\.)?revolut\.me\//i, "").replace(/^@/, "").replace(/[^a-zA-Z0-9._-]/g, "");
+function h(html) { const d = document.createElement("div"); d.innerHTML = html.trim(); return d.firstElementChild; }
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+
+// Codes skip look-alike characters (0/O, 1/I/L) so they're easy to read out at the table.
+const CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+function newCode() {
+  let s = ""; for (const n of crypto.getRandomValues(new Uint32Array(6))) s += CODE_CHARS[n % CODE_CHARS.length];
+  return s;
+}
+const cleanCode = (c) => String(c || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+
+const SAMPLE = { merchant: "Osteria Demo", tax: "2.40", items: [
+  { name: "Burrata", price: 12.5 }, { name: "Cacio e pepe", price: 16 },
+  { name: "Fries to share", price: 7 }, { name: "Negroni", price: 11 }, { name: "Tiramisu", price: 8.5 }
+]};
+
+/* ---------- app state (this device only) ---------- */
+const state = {
+  view: configured ? "land" : "setup",
+  selfId: lsGet("ctc.self") || uid("me"),
+  name: lsGet("ctc.name") || "",
+  revolut: lsGet("ctc.revolut") || "",
+  code: null, room: null, draft: null,
+  joinCode: "", error: "", busy: false,
+  complete: false, wasAllSettled: null,
+  online: true, everOnline: false,
+  installPrompt: null,
+};
+
+/* ---------- install as an app ---------- */
+const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); state.installPrompt = e; if (state.view === "land") render(); });
+addEventListener("appinstalled", () => { state.installPrompt = null; if (state.view === "land") render(); });
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+function installHtml() {
+  if (isStandalone()) return "";
+  if (state.installPrompt) return `<button class="btn ghost" id="install" style="margin-top:12px">Install the app</button>`;
+  if (isIOS()) return `<p class="hint" style="text-align:center;margin-top:14px">To install on iPhone: tap the Share button, then “Add to Home Screen”.</p>`;
+  return "";
+}
+lsSet("ctc.self", state.selfId);
+const saveName = (n) => { state.name = n; lsSet("ctc.name", n); };
+
+/* ---------- reading the shared room ---------- */
+const itemsOf = () => Object.entries(state.room?.items || {})
+  .map(([id, it]) => ({ id, name: it.name, price: Number(it.price) || 0, order: it.order || 0, splitting: !!it.splitting, claims: it.claims || {} }))
+  .sort((a, b) => a.order - b.order);
+const membersOf = () => Object.entries(state.room?.members || {})
+  .map(([id, m]) => ({ id, ...m }))
+  .sort((a, b) => (a.joined || 0) - (b.joined || 0));
+const selfMember = () => { const m = state.room?.members?.[state.selfId]; return m ? { id: state.selfId, ...m } : null; };
+const isHost = () => !!state.room && state.room.hostId === state.selfId;
+const hostMember = () => membersOf().find(m => m.id === state.room?.hostId);
+const guests = () => membersOf().filter(m => m.id !== state.room?.hostId && m.name);
+
+function shareOf(item, memberId) {
+  const w = Number(item.claims[memberId]) || 0; if (!w) return 0;
+  const all = Object.values(item.claims).reduce((s, x) => s + (Number(x) || 1), 0) || 1;
+  return item.price * w / all;
+}
+const subtotal = () => itemsOf().reduce((s, it) => s + it.price, 0);
+const unclaimedItems = () => itemsOf().filter(it => !Object.keys(it.claims).length);
+const allClaimed = () => itemsOf().length > 0 && unclaimedItems().length === 0;
+const everyoneSettled = () => { const g = guests(); return g.length > 0 && g.every(m => m.settled); };
+
+function breakdown(memberId) {
+  const r = state.room;
+  const food = itemsOf().reduce((s, it) => s + shareOf(it, memberId), 0);
+  const tax = (Number(r.tax) || 0) * food / (subtotal() || 1);
+  const tip = r.tipCash ? 0 : food * (Number(r.tipPct) || 0) / 100;
+  return { food, tax, tip, total: food + tax + tip };
+}
+// Guests are rounded to the cent. The host takes the leftover pennies,
+// so everyone's totals add up exactly to what was claimed.
+function totals() {
+  const out = {}; let rawSum = 0, guestSum = 0;
+  for (const m of membersOf().filter(m => m.name)) {
+    const t = breakdown(m.id).total; rawSum += t;
+    if (m.id !== state.room.hostId) { out[m.id] = round2(t); guestSum += out[m.id]; }
+  }
+  out[state.room.hostId] = Math.max(0, round2(round2(rawSum) - guestSum));
+  return out;
+}
+function billTotal() {
+  const r = state.room, sub = subtotal();
+  return sub + (Number(r.tax) || 0) + (r.tipCash ? 0 : sub * (Number(r.tipPct) || 0) / 100);
+}
+
+/* ---------- talking to Firebase ---------- */
+const roomPath = (p = "") => ref(db, "rooms/" + state.code + (p ? "/" + p : ""));
+function friendly(e) {
+  const msg = String(e?.code || e?.message || e);
+  if (/permission/i.test(msg)) return "Firebase refused that. Check the database rules allow the rooms folder.";
+  return "Couldn't reach the table. Check your internet connection and try again.";
+}
+async function act(promise) {
+  try { await promise; }
+  catch (e) { state.error = friendly(e); render(); }
+}
+
+let unwatch = null;
+function watchRoom(code) {
+  unwatch?.();
+  state.wasAllSettled = null;
+  unwatch = onValue(ref(db, "rooms/" + code), (snap) => {
+    const room = snap.val();
+    if (!room) { goHome("That table doesn't exist any more."); return; }
+    state.room = room;
+    const all = everyoneSettled();
+    if (state.wasAllSettled === false && all) { state.complete = true; burst(); }
+    state.wasAllSettled = all;
+    if (state.view === "scan") return; // don't wipe what the host is typing
+    render();
+  }, (e) => { state.error = friendly(e); render(); });
+}
+if (db) {
+  onValue(ref(db, ".info/connected"), (s) => {
+    state.online = s.val() === true;
+    if (state.online) state.everOnline = true;
+    if (state.view === "table") render();
+  });
+}
+
+function enterRoom(code, view) {
+  state.code = code; state.view = view; state.error = "";
+  history.replaceState({}, "", location.pathname + "?room=" + code);
+  watchRoom(code);
+}
+function goHome(message = "") {
+  unwatch?.(); unwatch = null;
+  state.room = null; state.code = null; state.draft = null; state.complete = false;
+  state.view = "land"; state.error = message;
+  history.replaceState({}, "", location.pathname);
+  render();
+}
+
+function itemsFromDraft(list) {
+  const items = {};
+  list.forEach((it, i) => { items[uid("it")] = { name: it.name.trim(), price: round2(parseMoney(it.price)), order: i }; });
+  return items;
+}
+
+async function startTable(withSample) {
+  const name = state.name.trim();
+  if (!name) { state.error = "Add your name first."; render(); return; }
+  saveName(name); state.busy = true; state.error = ""; render();
+  try {
+    let code = newCode();
+    for (let i = 0; i < 5 && (await get(ref(db, "rooms/" + code))).exists(); i++) code = newCode();
+    const room = {
+      code, hostId: state.selfId, closed: false, created: Date.now(),
+      merchant: withSample ? SAMPLE.merchant : "", tax: withSample ? parseMoney(SAMPLE.tax) : 0,
+      tipPct: 0, tipCash: false, revolut: cleanRevolut(state.revolut), photo: "",
+      members: { [state.selfId]: { name, settled: false, joined: Date.now() } },
+      items: withSample ? itemsFromDraft(SAMPLE.items) : null,
+    };
+    await set(ref(db, "rooms/" + code), room);
+    enterRoom(code, withSample ? "table" : "scan");
+  } catch (e) { state.error = friendly(e); }
+  state.busy = false; render();
+}
+
+async function joinTable(codeIn) {
+  const code = cleanCode(codeIn);
+  const name = state.name.trim();
+  if (!name) { state.error = "Add your name so the table knows who you are."; render(); return; }
+  if (code.length !== 6) { state.error = "Table codes are 6 letters and numbers, like K7QX2M."; render(); return; }
+  saveName(name); state.busy = true; state.error = ""; render();
+  try {
+    const snap = await get(ref(db, "rooms/" + code));
+    if (!snap.exists()) state.error = "No table with that code. Check it with the host.";
+    else {
+      const room = snap.val();
+      if (!room.members?.[state.selfId]) {
+        await set(ref(db, `rooms/${code}/members/${state.selfId}`), { name, settled: false, joined: Date.now() });
+      }
+      const hostWithoutBill = room.hostId === state.selfId && !room.items;
+      enterRoom(code, hostWithoutBill ? "scan" : "table");
+    }
+  } catch (e) { state.error = friendly(e); }
+  state.busy = false; render();
+}
+
+async function saveBill() {
+  const d = state.draft;
+  const list = d.items.filter(i => i.name.trim() && parseMoney(i.price) > 0);
+  if (!list.length) { state.error = "Add at least one dish with a price."; render(); return; }
+  const revolut = cleanRevolut(d.revolut);
+  state.revolut = revolut; lsSet("ctc.revolut", revolut);
+  state.busy = true; render();
+  try {
+    await update(roomPath(), {
+      merchant: d.merchant.trim() || "Receipt", tax: round2(parseMoney(d.tax)),
+      photo: d.photo || "", revolut, items: itemsFromDraft(list),
+    });
+    state.draft = null; state.view = "table"; state.error = "";
+  } catch (e) { state.error = friendly(e); }
+  state.busy = false; render();
+}
+
+// Each action writes only the small piece it changes, so two people
+// tapping at the same moment can't overwrite each other.
+const takeItem = (id) => act(update(roomPath("items/" + id), { claims: { [state.selfId]: 1 }, splitting: false }));
+const splitItem = (id, w) => act(update(roomPath("items/" + id), { ["claims/" + state.selfId]: w, splitting: true }));
+const undoItem = (id) => act(update(roomPath("items/" + id), { ["claims/" + state.selfId]: null }));
+const setTip = (pct) => act(update(roomPath(), { tipPct: pct, tipCash: false }));
+const toggleCashTip = () => act(update(roomPath(), { tipCash: !state.room.tipCash }));
+const setSettled = (v) => act(set(roomPath(`members/${state.selfId}/settled`), v));
+const closeTable = () => act(update(roomPath(), { closed: true }));
+
+async function leaveTable() {
+  if (!confirm("Leave this table? Your claimed dishes go back to unclaimed.")) return;
+  const changes = { ["members/" + state.selfId]: null };
+  for (const it of itemsOf()) if (it.claims[state.selfId]) changes[`items/${it.id}/claims/${state.selfId}`] = null;
+  await act(update(roomPath(), changes));
+  goHome();
+}
+async function sitDown() {
+  const n = (prompt("Your name at the table", state.name || "") || "").trim();
+  if (!n) return;
+  saveName(n);
+  await act(set(roomPath("members/" + state.selfId), { name: n, settled: false, joined: Date.now() }));
+}
+
+/* ---------- confetti & photos ---------- */
+function burst() {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const c = document.getElementById("confetti"), x = c.getContext("2d");
+  c.width = innerWidth; c.height = innerHeight;
+  const bits = Array.from({ length: 80 }, () => ({ x: Math.random() * innerWidth, y: -20 - Math.random() * 100, v: 2 + Math.random() * 4,
+    col: COLORS[Math.floor(Math.random() * COLORS.length)], w: 6, h: 10, r: Math.random() * 6 }));
+  let n = 0;
+  (function tick() {
+    x.clearRect(0, 0, c.width, c.height);
+    bits.forEach(b => { b.y += b.v; b.r += .1; x.save(); x.translate(b.x, b.y); x.rotate(b.r); x.fillStyle = b.col; x.fillRect(-b.w/2, -b.h/2, b.w, b.h); x.restore(); });
+    if (++n < 140) requestAnimationFrame(tick); else x.clearRect(0, 0, c.width, c.height);
+  })();
+}
+// Photos are shrunk hard because they're sent to every phone at the table.
+async function compress(file, max = 900, q = 0.6) {
+  const url = URL.createObjectURL(file);
+  const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+  URL.revokeObjectURL(url);
+  const scale = Math.min(1, max / Math.max(img.width, img.height));
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(img.width * scale)); c.height = Math.max(1, Math.round(img.height * scale));
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", q);
+}
+
+/* ---------- views ---------- */
+function render() {
+  const root = document.getElementById("app");
+  const y = scrollY;
+  let el;
+  if (state.view === "setup") el = viewSetup();
+  else if (state.view === "land") el = viewLand();
+  else if (state.view === "join") el = viewJoin();
+  else if (!state.room) el = h(`<p class="hint" style="text-align:center;margin-top:40px">Finding your table…</p>`);
+  else if (state.view === "scan") el = viewScan();
+  else if (state.room.closed) el = viewClosed();
+  else el = viewTable();
+  root.replaceChildren(el);
+  scrollTo(0, y);
+}
+const errorHtml = () => state.error ? `<p class="err" role="alert">${esc(state.error)}</p>` : "";
+
+function viewSetup() {
+  return h(`<div class="card" style="margin-top:40px">
+    <h1>Almost ready</h1>
+    <p>This app needs your Firebase config so phones at the same table can see each other.</p>
+    <p class="hint">Open index.html, find the block marked “PASTE YOUR FIREBASE CONFIG HERE”, and replace it with the config from your Firebase project settings.</p>
+  </div>`);
+}
+
+function viewLand() {
+  const el = h(`<div>
+    <p class="muted" style="text-align:center;margin:12px 0 0">Chop the Check</p>
+    <h1 style="text-align:center">Snap the bill. Claim your dishes.</h1>
+    <p class="hint" style="text-align:center">One person starts a table, everyone joins from their own phone and taps what they had. No sign-up.</p>
+    <div class="card" style="margin-top:16px">
+      <label><span>Your name</span><input id="nm" type="text" placeholder="Maya" autocomplete="given-name" value="${esc(state.name)}" /></label>
+      ${errorHtml()}
+      <button class="btn coral" id="go" style="margin-top:12px" ${state.busy ? "disabled" : ""}>Start a table</button>
+      <button class="btn ghost" id="sample" style="margin-top:8px" ${state.busy ? "disabled" : ""}>Try a sample bill</button>
+      <button class="btn ghost" id="join" style="margin-top:8px">Join a table</button>
+    </div>
+    ${installHtml()}</div>`);
+  el.querySelector("#nm").oninput = e => state.name = e.target.value;
+  el.querySelector("#go").onclick = () => startTable(false);
+  el.querySelector("#sample").onclick = () => startTable(true);
+  el.querySelector("#join").onclick = () => { state.view = "join"; state.error = ""; render(); };
+  el.querySelector("#install")?.addEventListener("click", async () => {
+    const p = state.installPrompt; if (!p) return;
+    p.prompt(); try { await p.userChoice; } catch {}
+    state.installPrompt = null; render();
+  });
+  return el;
+}
+
+function viewJoin() {
+  const el = h(`<div><button class="pill" id="back">Home</button><h1>Join a table</h1>
+    <div class="card">
+      <label><span>Your name</span><input id="nm" type="text" placeholder="Maya" autocomplete="given-name" value="${esc(state.name)}" /></label>
+      <label><span>Table code</span><input id="code" type="text" autocapitalize="characters" autocomplete="off" maxlength="6" placeholder="K7QX2M" value="${esc(state.joinCode)}" style="letter-spacing:.12em;text-transform:uppercase" /></label>
+      <p class="hint">The host can read it out or send you the link.</p>
+      ${errorHtml()}
+      <button class="btn" id="go" style="margin-top:12px" ${state.busy ? "disabled" : ""}>Sit down</button>
+    </div></div>`);
+  el.querySelector("#back").onclick = () => { state.view = "land"; state.error = ""; history.replaceState({}, "", location.pathname); render(); };
+  el.querySelector("#nm").oninput = e => state.name = e.target.value;
+  el.querySelector("#code").oninput = e => state.joinCode = e.target.value;
+  el.querySelector("#go").onclick = () => joinTable(el.querySelector("#code").value);
+  return el;
+}
+
+function topbar() {
+  const url = location.origin + location.pathname + "?room=" + state.code;
+  const wa = "https://wa.me/?text=" + encodeURIComponent("Join my table on Chop the Check: " + url);
+  const offline = state.everOnline && !state.online ? `<span class="pill warn">Reconnecting…</span>` : "";
+  return `<div class="topbar"><button class="pill" data-home>Home</button><button class="pill code" data-code title="Copy code">${esc(state.code)}</button><button class="pill" data-copy>Copy link</button><a class="pill" href="${wa}" target="_blank" rel="noopener">WhatsApp</a>${offline}</div>`;
+}
+function wireTopbar(el) {
+  const url = location.origin + location.pathname + "?room=" + state.code;
+  el.querySelector("[data-home]")?.addEventListener("click", () => goHome());
+  el.querySelector("[data-copy]")?.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(url); alert("Join link copied"); } catch { prompt("Copy the join link", url); }
+  });
+  el.querySelector("[data-code]")?.addEventListener("click", async () => { try { await navigator.clipboard.writeText(state.code); } catch {} });
+}
+
+function viewScan() {
+  const r = state.room;
+  const d = state.draft || (state.draft = {
+    merchant: r.merchant || "", tax: r.tax ? String(r.tax) : "0.00", photo: safePhoto(r.photo), preview: safePhoto(r.photo),
+    revolut: r.revolut || state.revolut || "",
+    items: itemsOf().map(it => ({ name: it.name, price: String(it.price) })),
+  });
+  const el = h(`<div>${topbar()}
+    <div class="hero-shot">${d.preview ? `<img src="${esc(d.preview)}" alt="Your receipt" />` : `<div class="hero-copy"><div style="font-size:1.3rem">Photograph the check</div><div class="hint" style="color:#edd">It's shown to the table so everyone can check the dishes.</div></div>`}</div>
+    <div class="row" style="margin-top:10px"><button class="btn" id="cam">Camera</button><button class="btn ghost" id="up">Upload</button></div>
+    <input id="file" type="file" accept="image/*" hidden />
+    <p style="text-align:center"><button class="pill" id="sample">Fill in a sample bill</button></p>
+    <div class="card" style="margin-top:4px">
+      <label><span>Place</span><input id="place" type="text" placeholder="Restaurant" value="${esc(d.merchant)}" /></label>
+      <p class="hint" style="margin:14px 0 0">Dishes and prices</p>
+      <div id="lines"></div>
+      <button class="btn ghost sm" id="add" style="margin-top:8px">Add a dish</button>
+      <label><span>Tax or service charge on the bill (€)</span><input id="tax" type="text" inputmode="decimal" value="${esc(d.tax)}" /></label>
+      <label><span>Your Revolut username, so friends can pay you (optional)</span>
+        <div class="prefixed"><em>revolut.me/</em><input id="rev" type="text" autocomplete="off" autocapitalize="off" placeholder="maya123" value="${esc(d.revolut)}" /></div></label>
+      ${errorHtml()}
+      <button class="btn coral" id="lock" style="margin-top:14px" ${state.busy ? "disabled" : ""}>Share bill with the table</button>
+      ${itemsOf().length ? `<p class="hint">Saving replaces the current dishes, so everyone's claims start fresh.</p>` : ""}
+    </div></div>`);
+  wireTopbar(el);
+  const drawLines = () => {
+    const box = el.querySelector("#lines");
+    if (!d.items.length) d.items.push({ name: "", price: "" });
+    box.innerHTML = d.items.map((it, i) => `<div class="row" style="margin-top:8px"><input type="text" aria-label="Dish" data-i="${i}" data-k="name" value="${esc(it.name)}" placeholder="Dish" /><input type="text" aria-label="Price" data-i="${i}" data-k="price" value="${esc(it.price)}" placeholder="0.00" inputmode="decimal" style="width:88px;flex:0 0 88px" /><button class="pill" aria-label="Remove dish" data-del="${i}">✕</button></div>`).join("");
+    box.querySelectorAll("input").forEach(inp => inp.oninput = () => { d.items[+inp.dataset.i][inp.dataset.k] = inp.value; });
+    box.querySelectorAll("[data-del]").forEach(b => b.onclick = () => { d.items.splice(+b.dataset.del, 1); drawLines(); });
+  };
+  drawLines();
+  const file = el.querySelector("#file");
+  el.querySelector("#cam").onclick = () => { file.setAttribute("capture", "environment"); file.click(); };
+  el.querySelector("#up").onclick = () => { file.removeAttribute("capture"); file.click(); };
+  file.onchange = async (e) => {
+    const f = e.target.files?.[0]; e.target.value = ""; if (!f) return;
+    try { d.photo = await compress(f); d.preview = d.photo; state.error = ""; }
+    catch { state.error = "Couldn't open that photo. Try another one."; }
+    render();
+  };
+  el.querySelector("#place").oninput = e => d.merchant = e.target.value;
+  el.querySelector("#tax").oninput = e => d.tax = e.target.value;
+  el.querySelector("#rev").oninput = e => d.revolut = e.target.value;
+  el.querySelector("#add").onclick = () => { d.items.push({ name: "", price: "" }); drawLines(); el.querySelector(`[data-i="${d.items.length-1}"]`)?.focus(); };
+  el.querySelector("#sample").onclick = () => { d.merchant = SAMPLE.merchant; d.tax = SAMPLE.tax; d.items = SAMPLE.items.map(i => ({ name: i.name, price: String(i.price) })); render(); };
+  el.querySelector("#lock").onclick = saveBill;
+  return el;
+}
+
+function viewTable() {
+  const r = state.room, me = selfMember(), host = hostMember();
+  const items = itemsOf();
+  const open = items.filter(it => !Object.keys(it.claims).length || it.splitting);
+  const mine = items.filter(it => it.claims[state.selfId]);
+  const tot = totals();
+  const myTotal = me?.name ? (tot[me.id] || 0) : 0;
+  const b = me?.name ? breakdown(me.id) : null;
+  const photo = safePhoto(r.photo);
+  const unclaimed = unclaimedItems().reduce((s, it) => s + it.price, 0);
+  const nameOf = (id) => r.members?.[id]?.name || "someone who left";
+
+  const el = h(`<div>${topbar()}
+    <div class="members" id="mems"></div>
+    ${errorHtml()}
+    ${photo ? `<div class="hero-shot" id="pic" title="Tap to enlarge"><img src="${esc(photo)}" alt="The receipt" /></div>` : ""}
+    ${r.merchant ? `<p style="font-size:1.25rem;margin:10px 0 4px">${esc(r.merchant)}</p>` : ""}
+    ${isHost() ? `<p style="margin:4px 0 10px"><button class="pill" id="edit">Edit bill</button></p>` : ""}
+    <div id="mybill"></div>
+    <div id="open"></div>
+    ${!open.length && items.length ? `<p class="hint">Every dish is claimed.</p>` : ""}
+
+    <div class="card" style="margin-top:12px">
+      <div class="spread"><span>Bill total</span><strong>${money(billTotal())}</strong></div>
+      ${unclaimed > 0 ? `<div class="spread err" style="margin-top:4px"><span>Unclaimed dishes</span><span>${money(unclaimed)}</span></div><p class="hint" style="margin:4px 0 0">Nobody is paying for these yet.</p>` : ""}
+      <p style="margin:14px 0 6px">Tip for the table</p>
+      <div class="row">${[0,10,15,20].map(p => `<button class="pill ${!r.tipCash && (Number(r.tipPct)||0) === p ? "on" : ""}" data-tip="${p}">${p ? p + "%" : "None"}</button>`).join("")}<button class="pill ${r.tipCash ? "on" : ""}" data-cash>Cash</button></div>
+      ${r.tipCash ? `<p class="hint" style="margin:6px 0 0">Everyone tips in cash, so no tip is added here.</p>` : ""}
+    </div>
+
+    <div class="card" style="margin-top:10px" id="pay"></div>
+    ${isHost() ? `<button class="btn ${allClaimed() && everyoneSettled() ? "" : "ghost"}" id="close" style="margin-top:12px">Close table</button>` : ""}
+    ${me && !isHost() ? `<button class="btn ghost sm" id="leave" style="margin-top:8px">Leave table</button>` : ""}
+  </div>`);
+
+  const mems = el.querySelector("#mems");
+  membersOf().filter(m => m.name).forEach(m => {
+    const hostTag = m.id === r.hostId ? ` <span class="muted">(host)</span>` : "";
+    mems.append(h(`<div class="chip ${m.id === state.selfId ? "me" : ""}"><span class="av" style="background:${colorFor(m.id)}">${esc(initials(m.name))}</span>${esc(m.name)}${hostTag}${m.settled && m.id !== r.hostId ? ` <span class="tick" aria-label="settled">✓</span>` : ""}</div>`));
+  });
+  if (!me?.name) mems.append(h(`<button class="chip" id="sit">+ Sit down</button>`));
+
+  el.querySelector("#mybill").innerHTML = me?.name
+    ? `<div class="item bill"><div class="spread"><strong>Your share</strong><strong>${money(myTotal)}</strong></div>
+        ${mine.length ? mine.map(it => `<div class="spread" style="margin-top:6px"><span>${esc(it.name)}${Object.keys(it.claims).length > 1 ? ` <span class="hint">(shared)</span>` : ""}</span><span>${money(shareOf(it, me.id))} <button class="pill" data-undo="${it.id}">Undo</button></span></div>`).join("")
+          : `<p class="hint">Tap “I had it” on a dish and it lands here.</p>`}
+        ${mine.length ? `<div class="breakdown"><div class="spread"><span>Food and drink</span><span>${money(b.food)}</span></div><div class="spread"><span>Tax or service</span><span>${money(b.tax)}</span></div><div class="spread"><span>Tip</span><span>${money(b.tip)}</span></div></div>` : ""}
+      </div>`
+    : `<div class="item bill"><p class="hint">Sit down to start claiming dishes.</p></div>`;
+
+  const openBox = el.querySelector("#open");
+  open.forEach(it => {
+    const who = Object.keys(it.claims).map(nameOf).join(", ");
+    const iAmIn = !!it.claims[state.selfId];
+    openBox.append(h(`<div class="item"><div class="spread"><div class="nm">${esc(it.name)}</div><div>${money(it.price)}</div></div>
+      ${who ? `<p class="hint" style="margin:4px 0 0">Shared by ${esc(who)}</p>` : ""}
+      ${me?.name ? `<div class="row" style="margin-top:8px">${iAmIn ? "" : `<button class="btn sm coral" data-had="${it.id}">I had it</button>`}<button class="btn sm ghost" data-split="${it.id}">${iAmIn ? "Change my share" : "I shared it"}</button></div>` : ""}
+    </div>`));
+  });
+
+  const pay = el.querySelector("#pay");
+  if (isHost()) {
+    const g = guests();
+    pay.innerHTML = `<p style="margin:0 0 4px">Who owes you</p>
+      ${g.length ? g.map(m => `<div class="spread owed"><span>${esc(m.name)}</span><span class="${m.settled ? "settled" : ""}">${money(tot[m.id] || 0)}${m.settled ? " ✓ paid" : ""}</span></div>`).join("")
+        : `<p class="hint">Nobody has joined yet. Send the link or read out the code <strong>${esc(state.code)}</strong>.</p>`}
+      ${r.revolut ? "" : `<p class="hint">Add your Revolut username with Edit bill so friends can pay you in one tap.</p>`}`;
+  } else if (me?.name) {
+    const hostName = host?.name || "the host";
+    pay.innerHTML = `<div class="spread" style="margin-bottom:8px"><span>Pay ${esc(hostName)}</span><strong>${money(myTotal)}</strong></div>
+      <div class="row">
+        ${r.revolut ? `<a class="btn sage sm" target="_blank" rel="noopener" href="https://revolut.me/${encodeURIComponent(r.revolut)}">Revolut</a>` : ""}
+        <button class="btn ${me.settled ? "ghost" : "coral"} sm" id="settle">${me.settled ? "Undo paid" : "I've paid"}</button>
+      </div>`;
+  } else pay.remove();
+
+  wireTopbar(el);
+  el.querySelector("#sit")?.addEventListener("click", sitDown);
+  el.querySelector("#edit")?.addEventListener("click", () => { state.draft = null; state.view = "scan"; state.error = ""; render(); });
+  el.querySelector("#pic")?.addEventListener("click", () => showPhoto(photo));
+  el.querySelectorAll("[data-had]").forEach(b => b.onclick = () => takeItem(b.dataset.had));
+  el.querySelectorAll("[data-split]").forEach(b => b.onclick = () => openSplit(b.dataset.split));
+  el.querySelectorAll("[data-undo]").forEach(b => b.onclick = () => undoItem(b.dataset.undo));
+  el.querySelectorAll("[data-tip]").forEach(b => b.onclick = () => setTip(Number(b.dataset.tip)));
+  el.querySelector("[data-cash]")?.addEventListener("click", toggleCashTip);
+  el.querySelector("#settle")?.addEventListener("click", () => setSettled(!me?.settled));
+  el.querySelector("#leave")?.addEventListener("click", leaveTable);
+  el.querySelector("#close")?.addEventListener("click", () => {
+    if (!(allClaimed() && everyoneSettled()) && !confirm("Not everyone has paid or every dish isn't claimed yet. Close the table anyway?")) return;
+    closeTable();
+  });
+
+  if (state.complete && everyoneSettled()) {
+    const ov = h(`<div class="overlay"><div class="sheet" style="text-align:center"><div class="stamp">BILL<br>SETTLED</div><h2>Everyone's paid</h2><p class="hint">Every guest at the table has paid ${esc(host?.name || "the host")}.</p>${isHost() ? `<button class="btn coral" id="shut">Close table</button>` : ""}<button class="btn ghost" id="ok" style="margin-top:8px">Keep looking</button></div></div>`);
+    ov.querySelector("#ok").onclick = () => { state.complete = false; render(); };
+    ov.querySelector("#shut")?.addEventListener("click", () => { state.complete = false; closeTable(); });
+    el.append(ov);
+  }
+  return el;
+}
+
+function openSplit(itemId) {
+  const it = itemsOf().find(i => i.id === itemId); if (!it) return;
+  const others = Object.entries(it.claims).filter(([id]) => id !== state.selfId).reduce((s, [, w]) => s + (Number(w) || 1), 0);
+  const preview = (w) => money(it.price * w / (others + w));
+  const opts = [[1, "Equal share"], [2, "A bit more"], [3, "Most of it"]];
+  const wrap = document.createElement("div"); wrap.className = "overlay";
+  wrap.innerHTML = `<div class="sheet" role="dialog" aria-label="Share a dish"><p style="margin:0 0 4px"><strong>${esc(it.name)}</strong> · ${money(it.price)}</p>
+    <p class="hint">How much did you have? ${others ? "Amounts shown are based on who's already sharing it." : "Amounts assume you're the only one so far; they'll shrink as others join."}</p>
+    <div class="row">${opts.map(([w, label]) => `<button class="btn sm split-opt" data-w="${w}">${label}<small>${preview(w)}</small></button>`).join("")}</div>
+    <button class="btn ghost sm" id="x" style="margin-top:8px">Cancel</button></div>`;
+  wrap.querySelectorAll("[data-w]").forEach(b => b.onclick = () => { splitItem(itemId, Number(b.dataset.w)); wrap.remove(); });
+  wrap.querySelector("#x").onclick = () => wrap.remove();
+  wrap.onclick = (e) => { if (e.target === wrap) wrap.remove(); };
+  document.body.append(wrap);
+}
+
+function showPhoto(src) {
+  const wrap = document.createElement("div"); wrap.className = "overlay"; wrap.style.placeItems = "center";
+  wrap.innerHTML = `<div class="sheet" style="padding:10px"><div class="hero-shot tall"><img src="${esc(src)}" alt="The receipt" /></div><button class="btn ghost sm" style="margin-top:8px">Close</button></div>`;
+  wrap.onclick = () => wrap.remove();
+  document.body.append(wrap);
+}
+
+function viewClosed() {
+  const el = h(`<div class="card" style="text-align:center;margin-top:40px"><div class="stamp">CLOSED</div><h1>This table is closed</h1><p class="hint">${esc(state.room.merchant || "The bill")} is all sorted.</p><button class="btn coral" id="home">Home</button></div>`);
+  el.querySelector("#home").onclick = () => goHome();
+  return el;
+}
+
+/* ---------- start ---------- */
+const linkCode = cleanCode(new URLSearchParams(location.search).get("room"));
+if (configured && linkCode) {
+  state.joinCode = linkCode;
+  if (state.name.trim()) joinTable(linkCode);
+  else state.view = "join";
+}
+render();
+</script>
+</body>
+</html>

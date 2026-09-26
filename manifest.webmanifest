@@ -1,0 +1,16 @@
+{
+  "name": "Chop the Check",
+  "short_name": "ChopTheCheck",
+  "description": "Snap the bill, share a code, and everyone claims their own dishes.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4efe6",
+  "theme_color": "#020617",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
