@@ -484,7 +484,7 @@ async function readReceipt(file) {
         d.note += ` Heads up: they add up to ${money(found)} but the receipt total is ${money(total)}, so a line may be missing or misread.`;
       }
     }
-  } catch (e) { console.warn(e); state.error = friendlyAiError(e); }
+  } catch (e) { console.warn(e); state.error = friendlyAiError(e) + " (Details: " + String(e?.code || "") + " " + String(e?.message || e).slice(0, 300) + ")"; }
   d.reading = false; render();
 }
 
