@@ -11,6 +11,8 @@
 <meta name="apple-mobile-web-app-title" content="Chop the Check" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <link rel="manifest" href="manifest.webmanifest" />
+<!-- Usage numbers and owner tools, shared by every Spectrum Tech Engine app -->
+<script src="https://thespectrumtechengine.com/ste-owner.js" data-app="chopthecheck" defer></script>
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <style>
@@ -329,9 +331,13 @@ function itemsFromDraft(list) {
   return items;
 }
 
+// Usage numbers for the owner (ste-owner.js on the website); counts only, never names or bills
+function ste(f, ...a) { try { if (window.STE && window.STE[f]) window.STE[f](...a); } catch (e) {} }
+
 async function startTable(withSample) {
   const name = state.name.trim();
   if (!name) { state.error = "Add your name first."; render(); return; }
+  ste("track", "play"); ste("detail", withSample ? "table-opened-with-sample" : "table-opened");
   saveName(name); state.busy = true; state.error = ""; render();
   try {
     let code = newCode();
@@ -353,6 +359,7 @@ async function joinTable(codeIn) {
   const code = cleanCode(codeIn);
   const name = state.name.trim();
   if (!name) { state.error = "Add your name so the table knows who you are."; render(); return; }
+  ste("track", "play"); ste("detail", "joined-a-table");
   if (code.length !== 6) { state.error = "Table codes are 6 letters and numbers, like K7QX2M."; render(); return; }
   saveName(name); state.busy = true; state.error = ""; render();
   try {
@@ -460,6 +467,7 @@ function expandItems(list) {
   return out;
 }
 async function readReceipt(file) {
+  ste("detail", "receipt-photo-read");
   const d = state.draft;
   d.reading = true; d.note = ""; state.error = ""; render();
   try {
@@ -583,6 +591,7 @@ function topbar() {
 function wireTopbar(el) {
   const url = location.origin + location.pathname + "?room=" + state.code;
   el.querySelector("[data-home]")?.addEventListener("click", () => goHome());
+  el.querySelector('a[href*="wa.me"]')?.addEventListener("click", () => ste("track", "share"));
   el.querySelector("[data-copy]")?.addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(url); alert("Join link copied"); } catch { prompt("Copy the join link", url); }
   });
