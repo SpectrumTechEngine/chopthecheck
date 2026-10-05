@@ -1,7 +1,7 @@
 // Chop the Check service worker.
 // The page itself is fetched fresh whenever there's internet, so new versions
 // uploaded to GitHub show up straight away. The cached copy is only a fallback.
-const CACHE = "chopthecheck-v6";
+const CACHE = "chopthecheck-v7";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "ste-logo.png",
   "icon-192.png", "icon-512.png", "apple-touch-icon.png", "favicon-32.png"];
 

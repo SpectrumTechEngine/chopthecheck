@@ -553,7 +553,8 @@ function viewLand() {
       <button class="btn ghost" id="sample" style="margin-top:8px" ${state.busy ? "disabled" : ""}>Try a sample bill</button>
       <button class="btn ghost" id="join" style="margin-top:8px">Join a table</button>
     </div>
-    ${installHtml()}</div>`);
+    ${installHtml()}
+    <p class="hint" style="text-align:center;margin-top:16px">Need help or found a bug? <a href="mailto:support@thespectrumtechengine.com">support@thespectrumtechengine.com</a></p></div>`);
   el.querySelector("#nm").oninput = e => state.name = e.target.value;
   el.querySelector("#go").onclick = () => startTable(false);
   el.querySelector("#sample").onclick = () => startTable(true);
