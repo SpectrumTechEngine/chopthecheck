@@ -1,0 +1,10 @@
+{
+  "appId": "com.thespectrumtechengine.chopthecheck",
+  "appName": "Chop the Check",
+  "webDir": "www",
+  "backgroundColor": "#0f0c29",
+  "server": {
+    "url": "https://thespectrumtechengine.com/chopthecheck/",
+    "errorPath": "index.html"
+  }
+}
